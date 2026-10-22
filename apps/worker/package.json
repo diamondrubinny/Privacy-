@@ -1,0 +1,24 @@
+{
+  "name": "@privacyscan/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "privacyscan": "./dist/cli.js"
+  },
+  "scripts": {
+    "scan": "tsx src/cli.ts",
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@privacyscan/collectors": "workspace:*",
+    "@privacyscan/rules": "workspace:*",
+    "@privacyscan/shared": "workspace:*",
+    "@privacyscan/tracker-db": "workspace:*",
+    "playwright-core": "1.64.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "tsup": "9.0.0"
+  }
+}

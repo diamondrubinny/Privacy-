@@ -1,0 +1,38 @@
+# Local development infrastructure. Not for production use.
+# Postgres/Redis are consumed from phase 3 onwards.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+    ports: ['127.0.0.1:5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER}']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    ports: ['127.0.0.1:6379:6379']
+
+  # Object storage (S3-compatible) is added in phase 4, after choosing a maintained image/provider.
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    profiles: [worker]
+    env_file: .env
+    # Hardening: no privilege escalation, read-only root FS, tmpfs for Chromium scratch.
+    read_only: true
+    tmpfs: ['/tmp:size=512m']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    shm_size: 1gb
+
+volumes:
+  pgdata:

@@ -1,0 +1,11 @@
+{
+  "name": "@privacyscan/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@privacyscan/shared": "workspace:*",
+    "@privacyscan/tracker-db": "workspace:*",
+    "@privacyscan/worker": "workspace:*"
+  }
+}

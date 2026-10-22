@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+scan-output
+coverage
+.git
+.env
+.env.*
+!.env.example
