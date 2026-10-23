@@ -150,21 +150,25 @@ export async function clickConsent(
   banner: PageBanner,
   kind: 'accept' | 'reject',
   timeoutMs: number,
-): Promise<{ clicked: boolean; error?: string }> {
+): Promise<{ clicked: boolean; error?: string; method?: 'dispatch' }> {
   const fallbackKinds: FrameButton['kind'][] =
     kind === 'accept' ? ['accept', 'acknowledge'] : ['reject'];
   const button = fallbackKinds
     .map((k) => banner.buttons.find((b) => b.kind === k))
     .find((b) => b !== undefined);
   if (!banner.frame || !button) return { clicked: false, error: 'button-not-found' };
+  const locator = banner.frame.locator(`[${MARK_ATTR}="${button.marker}"]`).first();
   try {
-    await banner.frame
-      .locator(`[${MARK_ATTR}="${button.marker}"]`)
-      .first()
-      .click({ timeout: timeoutMs });
+    await locator.click({ timeout: timeoutMs });
     return { clicked: true };
   } catch {
-    return { clicked: false, error: 'click-failed' };
+    // Overlays or animations can block pointer actionability; fire the DOM click directly.
+    try {
+      await locator.dispatchEvent('click', undefined, { timeout: 2_000 });
+      return { clicked: true, method: 'dispatch' };
+    } catch {
+      return { clicked: false, error: 'click-failed' };
+    }
   }
 }
 

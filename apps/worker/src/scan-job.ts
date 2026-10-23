@@ -13,6 +13,8 @@ export interface ScanJobInput {
   url: string;
   modes: readonly BrowserMode[];
   screenshotDir?: string;
+  /** Skip the multi-page audit (consent analysis only). */
+  skipAudit?: boolean;
   /** Test hooks; never set from user input. */
   overrides?: Pick<CollectOptions, 'hostOverrides' | 'resolver' | 'matcher'>;
 }
@@ -42,6 +44,15 @@ export async function runScan(input: ScanJobInput, config: ScannerConfig): Promi
     ...(input.overrides?.hostOverrides ? { hostOverrides: input.overrides.hostOverrides } : {}),
     ...(input.overrides?.resolver ? { resolver: input.overrides.resolver } : {}),
     ...(input.screenshotDir ? { screenshotDir: input.screenshotDir } : {}),
+    audit: input.skipAudit
+      ? false
+      : {
+          maxPages: config.SCANNER_MAX_PAGES,
+          crawlDelayMs: config.SCANNER_CRAWL_DELAY_MS,
+          a11yMaxPages: config.SCANNER_A11Y_MAX_PAGES,
+        },
+    chromiumSandbox: config.SCANNER_CHROMIUM_SANDBOX,
+    ...(config.SCANNER_LOCATION ? { scanLocation: config.SCANNER_LOCATION } : {}),
   });
   const { findings, ruleErrors } = runRules(evidence);
   return {

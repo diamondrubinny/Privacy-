@@ -10,6 +10,7 @@ import {
 } from './net/address-policy.js';
 import { EgressProxy, type HostOverride } from './net/egress-proxy.js';
 import { registrableDomain, runMode } from './browser/run-mode.js';
+import { runSiteAudit } from './audit/site-audit.js';
 
 export interface CollectOptions {
   url: string;
@@ -29,6 +30,23 @@ export interface CollectOptions {
   ignoreHttpsErrors?: boolean;
   /** Local troubleshooting only; screenshots may contain personal data shown on the site. */
   screenshotDir?: string;
+  /** Multi-page audit (forms, policy, security, a11y). `false` skips it. */
+  audit: AuditSettings | false;
+  /** Chromium's own sandbox; requires a non-root user (and a suitable seccomp profile in Docker). */
+  chromiumSandbox?: boolean;
+  /** Operator-declared egress location, echoed into the report. */
+  scanLocation?: string;
+}
+
+export interface AuditSettings {
+  maxPages: number;
+  crawlDelayMs: number;
+  a11yMaxPages: number;
+}
+
+/** Chromium's sandbox could not start (missing user-namespace support in the container). */
+export class SandboxUnavailableError extends Error {
+  override name = 'SandboxUnavailableError';
 }
 
 export interface CollectResult {
@@ -79,13 +97,24 @@ export async function collectEvidence(opts: CollectOptions): Promise<CollectResu
   const proxyPort = await proxy.start();
 
   try {
-    const browser = await chromium.launch({
-      headless: true,
-      ...(opts.executablePath ? { executablePath: opts.executablePath } : {}),
-      args: CHROMIUM_ARGS,
-      // Playwright adds "<-loopback>" so even 127.0.0.1 goes through the proxy.
-      proxy: { server: `http://127.0.0.1:${proxyPort}` },
-    });
+    const browser = await chromium
+      .launch({
+        headless: true,
+        chromiumSandbox: opts.chromiumSandbox ?? false,
+        ...(opts.executablePath ? { executablePath: opts.executablePath } : {}),
+        args: CHROMIUM_ARGS,
+        // Playwright adds "<-loopback>" so even 127.0.0.1 goes through the proxy.
+        proxy: { server: `http://127.0.0.1:${proxyPort}` },
+      })
+      .catch((error: unknown) => {
+        if (opts.chromiumSandbox && error instanceof Error && /sandbox/iu.test(error.message)) {
+          throw new SandboxUnavailableError(
+            'Chromium sandbox failed to start. Run the container with a seccomp profile that allows ' +
+              'user namespaces, or set SCANNER_CHROMIUM_SANDBOX=false (weaker isolation).',
+          );
+        }
+        throw error;
+      });
     try {
       const browserVersion = browser.version();
       const userAgent = buildUserAgent(browserVersion, opts.botInfoUrl);
@@ -108,14 +137,38 @@ export async function collectEvidence(opts: CollectOptions): Promise<CollectResu
           ...(opts.screenshotDir ? { screenshotDir: opts.screenshotDir } : {}),
         });
       }
+      const evidence: ScanEvidence = { targetUrl: target.href, siteDomain, modes };
+      if (opts.audit) {
+        evidence.audit = await runSiteAudit({
+          targetUrl: target.href,
+          siteDomain,
+          navTimeoutMs: opts.navTimeoutMs,
+          // Forms are often rendered client-side; consent analysis already waited the full settle.
+          pageSettleMs: Math.min(opts.settleMs, 1_500),
+          maxPages: opts.audit.maxPages,
+          crawlDelayMs: opts.audit.crawlDelayMs,
+          a11yMaxPages: opts.audit.a11yMaxPages,
+          newContext: () =>
+            browser.newContext({
+              userAgent,
+              locale: LOCALE,
+              timezoneId: TIMEZONE,
+              viewport: VIEWPORT,
+              serviceWorkers: 'block',
+              acceptDownloads: false,
+              ignoreHTTPSErrors: opts.ignoreHttpsErrors ?? false,
+            }),
+        });
+      }
       return {
-        evidence: { targetUrl: target.href, siteDomain, modes },
+        evidence,
         environment: {
           browserVersion,
           userAgent,
           locale: LOCALE,
           timezoneId: TIMEZONE,
           viewport: VIEWPORT,
+          ...(opts.scanLocation ? { scanLocation: opts.scanLocation } : {}),
         },
       };
     } finally {

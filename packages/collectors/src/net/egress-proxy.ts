@@ -13,7 +13,10 @@ import {
 
 export interface HostOverride {
   host: string;
+  /** Port for plain HTTP requests. */
   port: number;
+  /** Port for CONNECT tunnels (HTTPS); defaults to `port`. */
+  tlsPort?: number;
 }
 
 export interface EgressProxyOptions {
@@ -139,10 +142,19 @@ export class EgressProxy {
     this.options.onBlocked?.({ host, reason });
   }
 
-  private async resolveDestination(hostname: string, port: number): Promise<Destination> {
+  private async resolveDestination(
+    hostname: string,
+    port: number,
+    tunnel = false,
+  ): Promise<Destination> {
     const host = bareHostname(hostname).toLowerCase();
     const override = this.options.hostOverrides?.get(host);
-    if (override) return override;
+    if (override) {
+      return {
+        host: override.host,
+        port: tunnel ? (override.tlsPort ?? override.port) : override.port,
+      };
+    }
     assertPortAllowed(port, this.options.policy);
     let pending = this.dnsCache.get(host);
     if (!pending) {
@@ -235,7 +247,7 @@ export class EgressProxy {
     }
     let dest: Destination;
     try {
-      dest = await this.resolveDestination(authority.hostname, authority.port);
+      dest = await this.resolveDestination(authority.hostname, authority.port, true);
     } catch (error) {
       const reason = error instanceof PolicyError ? error.code : 'resolve-error';
       this.blocked(authority.hostname, reason);

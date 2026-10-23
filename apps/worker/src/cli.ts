@@ -2,7 +2,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { PolicyError } from '@privacyscan/collectors';
+import { PolicyError, SandboxUnavailableError } from '@privacyscan/collectors';
 import type { BrowserMode, ScanResult } from '@privacyscan/shared';
 import { ConfigError, loadConfig } from './config.js';
 import { runScan } from './scan-job.js';
@@ -15,6 +15,7 @@ Options:
   --pretty         Pretty-print JSON
   --summary        Print a short human-readable summary to stderr
   --screenshots <dir>  Save per-mode screenshots (local troubleshooting; may contain personal data)
+  --skip-audit     Consent analysis only (no crawl of forms/policy/security/a11y)
   --debug          Print stack traces on failure (local troubleshooting only)
   -h, --help       Show this help
 
@@ -64,6 +65,7 @@ async function main(argv: string[]): Promise<number> {
       summary: { type: 'boolean', default: false },
       debug: { type: 'boolean', default: false },
       screenshots: { type: 'string' },
+      'skip-audit': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -83,6 +85,7 @@ async function main(argv: string[]): Promise<number> {
     {
       url: positionals[0],
       modes: parseModes(values.modes),
+      skipAudit: values['skip-audit'],
       ...(screenshotDir ? { screenshotDir } : {}),
     },
     config,
@@ -106,7 +109,8 @@ main(process.argv.slice(2)).then(
   (error: unknown) => {
     // User-facing errors only; never dump stack traces or configuration values.
     if (error instanceof PolicyError) console.error(`Refused: ${error.message} (${error.code})`);
-    else if (error instanceof ConfigError) console.error(error.message);
+    else if (error instanceof ConfigError || error instanceof SandboxUnavailableError)
+      console.error(error.message);
     else if (error instanceof Error && error.message.startsWith('Invalid --modes'))
       console.error(error.message);
     else if (

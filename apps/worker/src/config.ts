@@ -18,6 +18,16 @@ const EnvSchema = z.object({
   SCANNER_SETTLE_MS: z.coerce.number().int().min(0).max(30_000).default(5_000),
   SCANNER_MAX_REQUESTS_PER_MODE: z.coerce.number().int().min(50).max(20_000).default(2_000),
   SCANNER_UPSTREAM_PROXY: optionalString.pipe(z.url({ protocol: /^http$/ }).optional()),
+  SCANNER_MAX_PAGES: z.coerce.number().int().min(1).max(25).default(8),
+  SCANNER_CRAWL_DELAY_MS: z.coerce.number().int().min(0).max(10_000).default(500),
+  SCANNER_A11Y_MAX_PAGES: z.coerce.number().int().min(0).max(10).default(3),
+  SCANNER_CHROMIUM_SANDBOX: boolFromEnv,
+  SCANNER_LOCATION: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[A-Za-z0-9 _-]{1,40}$/)
+      .optional(),
+  ),
   SCANNER_UNSAFE_ALLOW_PRIVATE_NETWORKS: boolFromEnv,
   SCANNER_UNSAFE_IGNORE_HTTPS_ERRORS: boolFromEnv,
 });

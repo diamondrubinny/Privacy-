@@ -69,12 +69,18 @@ importers:
       '@privacyscan/tracker-db':
         specifier: workspace:*
         version: link:../tracker-db
+      axe-core:
+        specifier: 4.14.0
+        version: 4.14.0
       ipaddr.js:
         specifier: 2.5.0
         version: 2.5.0
       playwright-core:
         specifier: 1.64.1
         version: 1.64.1
+      robots-parser:
+        specifier: 3.0.1
+        version: 3.0.1
       tldts:
         specifier: 7.4.19
         version: 7.4.19
@@ -84,6 +90,9 @@ importers:
       '@privacyscan/shared':
         specifier: workspace:*
         version: link:../shared
+      tldts:
+        specifier: 7.4.19
+        version: 7.4.19
 
   packages/shared: {}
 
@@ -688,6 +697,10 @@ packages:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
 
+  axe-core@4.14.0:
+    resolution: {integrity: sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==}
+    engines: {node: '>=4'}
+
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
@@ -1118,6 +1131,10 @@ packages:
   resolve-from@5.0.0:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
+
+  robots-parser@3.0.1:
+    resolution: {integrity: sha512-s+pyvQeIKIZ0dx5iJiQk1tPLJAWln39+MI5jtM8wnyws+G5azk+dMnMX0qfbqNetKKNgcWWOdi0sfm+FbQbgdQ==}
+    engines: {node: '>=10.0.0'}
 
   rolldown@1.2.15:
     resolution: {integrity: sha512-6odND+fel5zVw3I4Yc2e69gvguDnX0CAAGiNDZSq4ik5WUcaLrkD2GLuog0XcODbor31hZ5ayEMgVDno+KPV5g==}
@@ -1774,6 +1791,8 @@ snapshots:
 
   assertion-error@2.0.1: {}
 
+  axe-core@4.14.0: {}
+
   balanced-match@4.0.4: {}
 
   brace-expansion@5.0.12:
@@ -2162,6 +2181,8 @@ snapshots:
   readdirp@5.1.1: {}
 
   resolve-from@5.0.0: {}
+
+  robots-parser@3.0.1: {}
 
   rolldown@1.2.15:
     dependencies:

@@ -22,30 +22,42 @@ const config = loadConfig({
   NODE_ENV: 'test',
   SCANNER_SETTLE_MS: '400',
   SCANNER_NAV_TIMEOUT_MS: '15000',
+  SCANNER_CRAWL_DELAY_MS: '0',
+  // Fixture HTTPS uses a self-signed certificate.
+  SCANNER_UNSAFE_IGNORE_HTTPS_ERRORS: 'true',
   SCANNER_CHROMIUM_EXECUTABLE_PATH: process.env.SCANNER_CHROMIUM_EXECUTABLE_PATH ?? '',
 });
 
-async function scan(host: string): Promise<ScanResult> {
-  const cached = results.get(host);
+async function scan(host: string, scheme: 'http' | 'https' = 'http'): Promise<ScanResult> {
+  const cached = results.get(`${scheme}://${host}`);
   if (cached) return cached;
   const result = await runScan(
     {
-      url: `http://${host}/`,
+      url: `${scheme}://${host}/`,
       modes: ['baseline', 'reject', 'accept'],
       overrides: {
         matcher: new TrackerMatcher(FIXTURE_DATASET),
         hostOverrides: new Map(
-          FIXTURE_HOSTS.map((h) => [h, { host: '127.0.0.1', port: fixtures.port }]),
+          FIXTURE_HOSTS.map((h) => [
+            h,
+            { host: '127.0.0.1', port: fixtures.port, tlsPort: fixtures.tlsPort },
+          ]),
         ),
       },
     },
     config,
   );
-  results.set(host, result);
+  results.set(`${scheme}://${host}`, result);
   return result;
 }
 
-const ruleIds = (r: ScanResult): string[] => r.findings.map((f) => f.ruleId).sort();
+/** Consent fixtures are single http pages; only their consent findings are under test here. */
+const ruleIds = (r: ScanResult): string[] =>
+  r.findings
+    .map((f) => f.ruleId)
+    .filter((id) => id.startsWith('CK-'))
+    .sort();
+const allIds = (r: ScanResult): string[] => [...new Set(r.findings.map((f) => f.ruleId))].sort();
 
 beforeAll(async () => {
   fixtures = await startFixtureServer();
@@ -121,7 +133,7 @@ describe('ignore.test', () => {
 describe('good.test', () => {
   it('has no findings and an accurate inventory', async () => {
     const r = await scan('good.test');
-    expect(r.findings).toEqual([]);
+    expect(ruleIds(r)).toEqual([]);
     expect(r.ruleErrors).toEqual([]);
     expect(r.inventory.trackers).toEqual([
       expect.objectContaining({
@@ -156,5 +168,83 @@ describe('target validation', () => {
     ).rejects.toMatchObject({
       code: 'unsupported-scheme',
     });
+  });
+});
+
+describe('secure.test (compliant, HTTPS)', () => {
+  it('produces no findings at all', async () => {
+    const r = await scan('secure.test', 'https');
+    expect(r.findings.map((f) => `${f.ruleId}: ${f.title}`)).toEqual([]);
+    expect(r.ruleErrors).toEqual([]);
+  });
+
+  it('crawled the legal and contact pages and read the policy', async () => {
+    const r = await scan('secure.test', 'https');
+    const audit = r.evidence.audit;
+    expect(audit?.pages.map((p) => p.role).sort()).toEqual([
+      'accessibility',
+      'contact',
+      'home',
+      'privacy',
+    ]);
+    expect(audit?.policy?.text).toContain('אתר מאובטח בע"מ');
+    expect(audit?.security?.httpRedirectsToHttps).toBe(true);
+    expect(audit?.security?.tls?.protocol).toMatch(/^TLS/);
+    const contact = audit?.pages.find((p) => p.role === 'contact');
+    // Hidden reCAPTCHA textarea and honeypot are ignored.
+    expect(contact?.forms[0]?.fields.map((f) => f.type)).toEqual(['text', 'email', 'textarea']);
+    expect(contact?.a11y?.engine).toMatch(/^axe-core@/);
+  });
+});
+
+describe('shop.test (staged violations, HTTPS)', () => {
+  it('reports the expected rule set', async () => {
+    const r = await scan('shop.test', 'https');
+    expect(allIds(r)).toEqual([
+      'A11Y-AXE-button-name',
+      'A11Y-AXE-image-alt',
+      'A11Y-OVERLAY-ONLY',
+      'A11Y-STATEMENT-MISSING',
+      'FORM-INSECURE-SUBMIT',
+      'FORM-NO-NOTICE',
+      'FORM-SENSITIVE-DATA',
+      'FORM-THIRD-PARTY-ACTION',
+      'POL-ELEMENTS-MISSING',
+      'POL-OUTDATED',
+      'SEC-COOKIE-FLAGS',
+      'SEC-HEADERS',
+      'SEC-HSTS',
+      'SEC-MIXED-CONTENT',
+      'SEC-NO-HTTPS',
+      'SPAM-OPTIN-BUNDLED',
+      'SPAM-OPTIN-PRECHECKED',
+    ]);
+  });
+
+  it('reports each distinct form once, including the implicit (no <form>) join form', async () => {
+    const r = await scan('shop.test', 'https');
+    const noNotice = r.findings.filter((f) => f.ruleId === 'FORM-NO-NOTICE');
+    // contact + join (implicit). The footer newsletter sits next to the footer's privacy link.
+    expect(noNotice).toHaveLength(2);
+    const sensitive = r.findings
+      .filter((f) => f.ruleId === 'FORM-SENSITIVE-DATA')
+      .map((f) => f.severity)
+      .sort();
+    expect(sensitive).toEqual(['high', 'medium']); // medical details; birth date
+  });
+
+  it('respects robots.txt for discovered pages', async () => {
+    const r = await scan('shop.test', 'https');
+    expect(r.evidence.audit?.robots).toEqual({
+      status: 200,
+      disallowedSkipped: ['https://shop.test/secret-offers'],
+    });
+    expect(fixtures.served.filter((s) => s.startsWith('shop.test/secret-offers'))).toEqual([]);
+  });
+
+  it('flags the missing HTTP→HTTPS redirect and the leaked version header', async () => {
+    const r = await scan('shop.test', 'https');
+    expect(r.findings.find((f) => f.ruleId === 'SEC-NO-HTTPS')?.severity).toBe('medium');
+    expect(r.findings.find((f) => f.ruleId === 'SEC-HEADERS')?.description).toContain('PHP/7.4.3');
   });
 });

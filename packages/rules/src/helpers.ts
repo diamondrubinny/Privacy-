@@ -1,6 +1,8 @@
 import {
   CONSENT_REQUIRED_CATEGORIES,
   type BrowserMode,
+  type Finding,
+  type Rule,
   type CookieRecord,
   type ModeEvidence,
   type RequestRecord,
@@ -17,7 +19,43 @@ export const REFS = {
   ilNotice:
     'חוק הגנת הפרטיות, התשמ"א-1981 (כולל תיקון 13) — חובת יידוע ועקרון צמידות המטרה; תחולה על עוגיות דורשת בדיקה משפטית',
   cnilRetention: 'CNIL — הנחיות עוגיות (2020): תוקף מומלץ עד 13 חודשים',
+  ilSection11: 'חוק הגנת הפרטיות, התשמ"א-1981, סעיף 11 — חובת יידוע בעת בקשת מידע',
+  ilAmendment13: 'תיקון 13 לחוק הגנת הפרטיות (בתוקף מ-14.08.2025 — דורש אימות)',
+  ilSensitive: 'תיקון 13 — "מידע בעל רגישות מיוחדת" (רשימת הקטגוריות דורשת אימות מול נוסח החוק)',
+  ilSecurityRegs: 'תקנות הגנת הפרטיות (אבטחת מידע), התשע"ז-2017',
+  ilTransferRegs: 'תקנות הגנת הפרטיות (העברת מידע אל מאגרי מידע שמחוץ לגבולות המדינה), התשס"א-2001',
+  spamLaw: 'חוק התקשורת (בזק ושידורים), התשמ"ב-1982, סעיף 30א — הסכמה מפורשת לדברי פרסומת',
+  gdprArt13: 'GDPR סעיף 13 — מידע שיש למסור בעת איסוף',
+  gdprArt28: 'GDPR סעיף 28 — מעבד מידע (DPA)',
+  gdprArt32: 'GDPR סעיף 32 — אבטחת העיבוד',
+  gdprArt9: 'GDPR סעיף 9 — קטגוריות מיוחדות של מידע',
+  ilA11yRegs:
+    'תקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג-2013, תקנה 35 — חלות ופטורים דורשים בדיקה',
+  is5568: 'ת"י 5568 (מבוסס WCAG; הגרסה המחייבת דורשת אימות)',
+  wcag21: 'WCAG 2.1 רמה AA',
+  owaspHeaders: 'OWASP Secure Headers Project',
 } as const;
+
+/** Amendment 13 effective date (requires verification against the official publication). */
+export const AMENDMENT_13_EFFECTIVE = '2025-08-14';
+
+/** `ruleId` may be refined (e.g. "A11Y-AXE-image-alt") but must keep the rule id as prefix. */
+type FindingFields = Omit<Finding, 'ruleId' | 'ruleVersion' | 'category' | 'jurisdictions'> &
+  Partial<Pick<Finding, 'jurisdictions' | 'ruleId'>>;
+
+/** Fills rule metadata so each rule only states what it found. */
+export function finding(rule: Rule, fields: FindingFields): Finding {
+  if (fields.ruleId !== undefined && !fields.ruleId.startsWith(`${rule.id}-`)) {
+    throw new Error(`Finding id ${fields.ruleId} must extend ${rule.id}`);
+  }
+  return {
+    ...fields,
+    ruleId: fields.ruleId ?? rule.id,
+    ruleVersion: rule.version,
+    category: rule.category,
+    jurisdictions: fields.jurisdictions ?? rule.jurisdictions,
+  };
+}
 
 export interface Offender {
   vendor: string;

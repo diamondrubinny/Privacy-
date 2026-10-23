@@ -17,9 +17,13 @@ import {
 import { ckPreconsent } from './cookies/preconsent.js';
 import { ckRejectIgnored } from './cookies/reject-ignored.js';
 import { ckLongRetention } from './cookies/retention.js';
+import { A11Y_RULES } from './a11y/a11y-rules.js';
+import { FORM_RULES } from './forms/form-rules.js';
+import { POLICY_RULES } from './policy/policy-rules.js';
+import { SECURITY_RULES } from './security/security-rules.js';
 
 /** Bump on any rule change; stored with every scan for reproducibility. */
-export const RULESET_VERSION = '2026.10.0';
+export const RULESET_VERSION = '2026.10.1';
 
 export const DEFAULT_RULES: readonly Rule[] = [
   ckPreconsent,
@@ -31,6 +35,10 @@ export const DEFAULT_RULES: readonly Rule[] = [
   ckNoRevisit,
   ckLongRetention,
   ckActionFailed,
+  ...POLICY_RULES,
+  ...FORM_RULES,
+  ...SECURITY_RULES,
+  ...A11Y_RULES,
 ];
 
 export const SEVERITY_ORDER: Record<Severity, number> = {

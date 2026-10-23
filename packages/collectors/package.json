@@ -9,8 +9,10 @@
   "dependencies": {
     "@privacyscan/shared": "workspace:*",
     "@privacyscan/tracker-db": "workspace:*",
+    "axe-core": "4.14.0",
     "ipaddr.js": "2.5.0",
     "playwright-core": "1.64.1",
+    "robots-parser": "3.0.1",
     "tldts": "7.4.19"
   }
 }

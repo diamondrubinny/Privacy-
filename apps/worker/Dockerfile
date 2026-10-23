@@ -22,6 +22,9 @@ RUN pnpm --filter @privacyscan/worker build
 # Playwright image version MUST match playwright-core in package.json (browser build compatibility).
 FROM mcr.microsoft.com/playwright:v1.64.1-noble
 ENV NODE_ENV=production
+# Chromium's own sandbox (renderer seccomp-bpf + namespaces) is the main defense against hostile pages.
+# Requires a seccomp profile that permits user namespaces (see docker-compose.yml / README).
+ENV SCANNER_CHROMIUM_SANDBOX=true
 WORKDIR /app
 COPY --from=build /repo/apps/worker/dist ./dist
 RUN printf '{"name":"privacyscan-worker","private":true,"type":"module","dependencies":{"playwright-core":"1.64.1"}}' > package.json \

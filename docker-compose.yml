@@ -30,7 +30,10 @@ services:
     # Hardening: no privilege escalation, read-only root FS, tmpfs for Chromium scratch.
     read_only: true
     tmpfs: ['/tmp:size=512m']
-    security_opt: ['no-new-privileges:true']
+    # Chromium's sandbox needs user namespaces, which Docker's default seccomp profile blocks.
+    # Production: replace "unconfined" with a custom profile = Docker default + clone/unshare for
+    # user namespaces. Renderers still get Chromium's own (stricter) seccomp-bpf filter.
+    security_opt: ['no-new-privileges:true', 'seccomp=unconfined']
     cap_drop: [ALL]
     shm_size: 1gb
 
